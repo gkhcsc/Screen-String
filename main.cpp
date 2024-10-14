@@ -1,15 +1,14 @@
 int windowWidth		= 1000;
-int windowHeight	= 100;
-int fontSize		= 50;
-
+int windowHeight	=  50;
+int fontSize		= 40;
 
 #include <Windows.h>
 #include <gdiplus.h>
 using namespace Gdiplus;
 #pragma comment (lib,"Gdiplus.lib")
-
-void DrawString(HWND hWnd, TCHAR* string, Color boderColor, Color fillColor);
-LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam);
+int CenterWindowOnScreen_Y(int windowHeight);
+int CenterWindowOnScreen_X(int windowWidth);
+void DrawLineString(HWND hWnd, TCHAR* string, Color boderColor, Color fillColor, int flag); LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam);
 ATOM registeWndClass(HINSTANCE hInstance, LPCWSTR lpClassName, WNDPROC wndProc, DWORD dwColor);
 
 INT WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, PSTR, INT iCmdShow)
@@ -29,8 +28,8 @@ INT WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, PSTR, INT iCmdShow)
 		TEXT("GettingStarted"), // window class name
 		TEXT("Getting Started"), // window caption
 		WS_OVERLAPPEDWINDOW, // window style
-		CW_USEDEFAULT, // initial x position
-		CW_USEDEFAULT, // initial y position
+		CenterWindowOnScreen_X(windowWidth), // initial x position
+		CenterWindowOnScreen_Y(windowHeight), // initial y position
 		windowWidth, // initial x size
 		windowHeight, // initial y size
 		NULL, // parent window handle
@@ -39,8 +38,8 @@ INT WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, PSTR, INT iCmdShow)
 		NULL); // creation parameters
 	ShowWindow(hWnd, iCmdShow);
 	TCHAR string[] = { 0 };
-	wcscpy(string, L"这是一个中文长文本长长长长长长长长长长长长长长长长长长长长");
-	DrawString(hWnd, string, Color(255, 255, 0, 0), Color(255, 0, 255, 0));
+	wcscpy(string, L"这是一个中文长文");
+	DrawLineString(hWnd, string, Color(255, 0, 255, 0), Color(255, 0, 255, 0),0);
 
 	while (GetMessage(&msg, NULL, 0, 0))
 	{
@@ -83,7 +82,7 @@ ATOM registeWndClass(HINSTANCE hInstance, LPCWSTR lpClassName, WNDPROC wndProc, 
 	wnd.cbWndExtra = 0;
 	wnd.hbrBackground = (HBRUSH)(GetStockObject(dwColor));
 	wnd.hCursor = LoadCursor(NULL, IDC_ARROW);
-	wnd.hIcon = LoadCursor(NULL, IDI_APPLICATION);
+	wnd.hIcon = LoadIcon(NULL, IDI_APPLICATION);
 	wnd.lpfnWndProc = wndProc;
 	wnd.lpszClassName = lpClassName;
 	wnd.lpszMenuName = NULL;
@@ -93,47 +92,62 @@ ATOM registeWndClass(HINSTANCE hInstance, LPCWSTR lpClassName, WNDPROC wndProc, 
 
 }
 
-void DrawString(HWND hWnd, TCHAR* string, Color boderColor, Color fillColor)
+void DrawLineString(HWND hWnd, TCHAR* string, Color boderColor, Color fillColor,int flag)
 {
+	int					string_length = lstrlen(string);
+	int					newWindowWidth = ((fontSize + 10) * string_length) * 2;
+	int					newWindowHeight = fontSize + 10;
+	int					x = 0;
+	int					y = 0;
 	HDC					hdc = GetDC(hWnd);
 	HDC					memDC = CreateCompatibleDC(hdc);
-	HBITMAP				bmp = CreateCompatibleBitmap(hdc, windowWidth, windowHeight);
+	HBITMAP				bmp = CreateCompatibleBitmap(hdc, newWindowWidth, newWindowHeight);
 	FontFamily			fontFamily(L"黑体");
-	RectF				rectF(REAL(0), REAL(0), REAL(windowWidth), REAL(windowHeight));
+	RectF				rectF(0, 0, newWindowWidth, newWindowHeight);
 	StringFormat		stringFormat;
 	GraphicsPath		strPath;
 	Pen					pen(boderColor, 2);
-	Rect				rect;
 	POINT				p2 = { 0,0 };
-	SIZE				size = { windowWidth,windowHeight };
+	SIZE				size = { newWindowWidth,newWindowHeight };
 	BLENDFUNCTION		_blend;
-	LinearGradientBrush LGBrush(Point(rect.Width / 2, 6), Point(rect.Width / 2, rect.Height), fillColor, fillColor);
-	int string_length	= lstrlen(string);
+	LinearGradientBrush LGBrush(Point(0, 10), Point(0, 0), fillColor, fillColor);
+	
 
 	SelectObject(memDC, bmp);
 	Graphics			g(memDC);
-
-	stringFormat.SetAlignment(StringAlignmentCenter);
-	stringFormat.SetLineAlignment(StringAlignmentCenter);
-
-
-	strPath.AddString(string, string_length, &fontFamily, FontStyleBold, fontSize, rectF, &stringFormat);
-
+	if (flag == 0) 
+	{
+		stringFormat.SetAlignment(StringAlignmentCenter);
+		strPath.AddString(string, string_length, &fontFamily, FontStyleBold, fontSize, rectF, &stringFormat);
+		x = CenterWindowOnScreen_X(newWindowWidth);
+		y = CenterWindowOnScreen_Y(newWindowHeight);
+	}
 
 	
-	SetWindowPos(hWnd, NULL, CW_USEDEFAULT, CW_USEDEFAULT, fontSize * string_length, fontSize, SWP_NOZORDER | SWP_NOMOVE);
 
 	g.SetSmoothingMode(SmoothingModeAntiAlias);
 	g.DrawPath(&pen, &strPath);
 	g.FillPath(&LGBrush, &strPath);
-	
+
 
 	_blend.BlendFlags = 0;
 	_blend.BlendOp = AC_SRC_OVER;
 	_blend.SourceConstantAlpha = 255;
 	_blend.AlphaFormat = AC_SRC_ALPHA;
-	
+
 
 	UpdateLayeredWindow(hWnd, hdc, NULL, &size, memDC, &p2, NULL, &_blend, ULW_ALPHA);
+	SetWindowPos(hWnd, NULL, x, y, newWindowWidth, newWindowHeight, SWP_NOZORDER);
 }
 
+int CenterWindowOnScreen_X(int windowWidth)
+{
+	int screenWidth = GetSystemMetrics(SM_CXSCREEN);
+	return (screenWidth - windowWidth) / 2;
+}
+
+int CenterWindowOnScreen_Y(int windowHeight)
+{
+	int screenHeight = GetSystemMetrics(SM_CYSCREEN);
+	return (screenHeight - windowHeight) / 2;
+}
